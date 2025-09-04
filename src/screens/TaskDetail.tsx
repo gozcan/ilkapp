@@ -212,6 +212,9 @@ export default function TaskDetailScreen({ taskId, projectName }: Props) {
     saving?: boolean;
   }>({ visible: false });
 
+  // FAB action sheet
+  const [fabSheet, setFabSheet] = useState(false);
+
   // Pull to refresh
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
@@ -771,8 +774,8 @@ export default function TaskDetailScreen({ taskId, projectName }: Props) {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{
               gap: spacing.x4,
-              paddingBottom: spacing.x14,
-            }}
+              paddingBottom: spacing.x20,
+            }} // daha fazla alt boşluk
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -890,7 +893,6 @@ export default function TaskDetailScreen({ taskId, projectName }: Props) {
                     <AnimatedScalePressable
                       key={st}
                       onPress={() => setStatus(st)}
-                      style={{}}
                     >
                       <View
                         style={[
@@ -990,26 +992,6 @@ export default function TaskDetailScreen({ taskId, projectName }: Props) {
                 <Text style={styles.sectionTitle}>Fotoğraflar</Text>
               </View>
 
-              <View style={styles.mediaHeader}>
-                <View style={{ height: 1 }} />
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <AnimatedScalePressable onPress={pickFromLibrary}>
-                    <View style={styles.addBtn}>
-                      <Text style={{ color: '#fff', fontWeight: '700' }}>
-                        {uploading ? 'Yükleniyor…' : 'Galeriden'}
-                      </Text>
-                    </View>
-                  </AnimatedScalePressable>
-                  <AnimatedScalePressable onPress={captureWithCamera}>
-                    <View style={styles.addBtn}>
-                      <Text style={{ color: '#fff', fontWeight: '700' }}>
-                        {uploading ? 'Yükleniyor…' : 'Kameradan'}
-                      </Text>
-                    </View>
-                  </AnimatedScalePressable>
-                </View>
-              </View>
-
               {mediaLoading ? (
                 <View style={styles.centerRow}>
                   <ActivityIndicator />
@@ -1025,9 +1007,9 @@ export default function TaskDetailScreen({ taskId, projectName }: Props) {
                     color="#9CA3AF"
                   />
                   <Text style={styles.emptyText}>Henüz fotoğraf yok</Text>
-                  <AnimatedScalePressable onPress={captureWithCamera}>
+                  <AnimatedScalePressable onPress={() => setFabSheet(true)}>
                     <View style={styles.emptyCta}>
-                      <Text style={styles.emptyCtaText}>Kameradan ekle</Text>
+                      <Text style={styles.emptyCtaText}>Foto ekle</Text>
                     </View>
                   </AnimatedScalePressable>
                 </View>
@@ -1200,47 +1182,21 @@ export default function TaskDetailScreen({ taskId, projectName }: Props) {
             </AnimatedCard>
           </ScrollView>
 
-          {/* Yapışkan Hızlı Aksiyon Çubuğu */}
-          <View
-            pointerEvents="box-none"
-            style={styles.fabWrap}
+          {/* Tek “+” FAB (sağ altta) */}
+          <AnimatedScalePressable
+            style={styles.fabFloat}
+            onPress={() => setFabSheet(true)}
+            scaleTo={0.95}
+            hitSlop={8}
           >
-            <View style={styles.fabBar}>
-              <AnimatedScalePressable
-                onPress={() =>
-                  task &&
-                  navigate('ExpenseAdd', {
-                    projectId: task.project_id,
-                    taskId: task.id,
-                  })
-                }
-                style={styles.fabBtnPrimary}
-                scaleTo={0.97}
-                hitSlop={6}
-              >
-                <Ionicons
-                  name="cash-outline"
-                  size={18}
-                  color="#fff"
-                />
-                <Text style={styles.fabBtnPrimaryText}>₺ Harcama Ekle</Text>
-              </AnimatedScalePressable>
-
-              <AnimatedScalePressable
-                onPress={pickFromLibrary}
-                style={styles.fabBtn}
-                scaleTo={0.97}
-                hitSlop={6}
-              >
-                <Ionicons
-                  name="images-outline"
-                  size={18}
-                  color={colors.primary}
-                />
-                <Text style={styles.fabBtnText}>Foto Ekle</Text>
-              </AnimatedScalePressable>
+            <View style={styles.fabCircle}>
+              <Ionicons
+                name="add"
+                size={24}
+                color="#fff"
+              />
             </View>
-          </View>
+          </AnimatedScalePressable>
         </>
       )}
 
@@ -1251,12 +1207,10 @@ export default function TaskDetailScreen({ taskId, projectName }: Props) {
         onRequestClose={() => setPreviewUrl(null)}
         animationType="fade"
       >
-        {/* pointerEvents=box-none: üstteki X tıklamayı alsın */}
         <GestureHandlerRootView
           pointerEvents="box-none"
           style={styles.previewBackdrop}
         >
-          {/* X butonu — yüksek zIndex + geniş hitSlop */}
           <Pressable
             onPress={() => setPreviewUrl(null)}
             hitSlop={16}
@@ -1268,7 +1222,6 @@ export default function TaskDetailScreen({ taskId, projectName }: Props) {
               color="#fff"
             />
           </Pressable>
-
           <PinchGestureHandler
             onGestureEvent={onPinchEvent}
             onHandlerStateChange={onPinchStateChange}
@@ -1285,7 +1238,6 @@ export default function TaskDetailScreen({ taskId, projectName }: Props) {
               />
             </Animated.View>
           </PinchGestureHandler>
-
           <Pressable
             style={styles.resetBtn}
             onPress={resetZoom}
@@ -1411,6 +1363,78 @@ export default function TaskDetailScreen({ taskId, projectName }: Props) {
             <AnimatedScalePressable
               style={[styles.sheetBtn, { justifyContent: 'center' }]}
               onPress={() => setExpActions({ visible: false })}
+            >
+              <Text style={[styles.sheetBtnText, { color: '#111827' }]}>
+                İptal
+              </Text>
+            </AnimatedScalePressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* FAB action sheet (₺ Harcama, Kamera, Galeri) */}
+      <Modal
+        visible={fabSheet}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFabSheet(false)}
+      >
+        <View style={styles.sheetBackdrop}>
+          <View style={styles.sheetCard}>
+            <Text style={styles.sheetTitle}>Ekle</Text>
+
+            <AnimatedScalePressable
+              style={styles.sheetBtn}
+              onPress={() => {
+                setFabSheet(false);
+                task &&
+                  navigate('ExpenseAdd', {
+                    projectId: task.project_id,
+                    taskId: task.id,
+                  });
+              }}
+            >
+              <Ionicons
+                name="cash-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={styles.sheetBtnText}>₺ Harcama Ekle</Text>
+            </AnimatedScalePressable>
+
+            <AnimatedScalePressable
+              style={styles.sheetBtn}
+              onPress={async () => {
+                setFabSheet(false);
+                await captureWithCamera();
+              }}
+            >
+              <Ionicons
+                name="camera-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={styles.sheetBtnText}>Foto: Kameradan</Text>
+            </AnimatedScalePressable>
+
+            <AnimatedScalePressable
+              style={styles.sheetBtn}
+              onPress={async () => {
+                setFabSheet(false);
+                await pickFromLibrary();
+              }}
+            >
+              <Ionicons
+                name="image-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={styles.sheetBtnText}>Foto: Galeriden</Text>
+            </AnimatedScalePressable>
+
+            <AnimatedScalePressable
+              style={[styles.sheetBtn, { justifyContent: 'center' }]}
+              onPress={() => setFabSheet(false)}
             >
               <Text style={[styles.sheetBtnText, { color: '#111827' }]}>
                 İptal
@@ -1693,31 +1717,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 
-  qa: {
-    flex: 1,
-    paddingVertical: spacing.x4,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F7F8FF',
-  },
-
-  mediaHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.x2,
-  },
-
-  addBtn: {
-    backgroundColor: colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: radius.lg,
-  },
-
   // boş durum
   emptyCard: {
     borderWidth: 1,
@@ -1777,7 +1776,7 @@ const styles = StyleSheet.create({
     right: 20,
     padding: 8,
     zIndex: 20,
-    elevation: 20, // <-- tıklama önceliği
+    elevation: 20,
   },
   resetBtn: {
     position: 'absolute',
@@ -1787,118 +1786,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 12,
-  },
-
-  // Foto silme modal
-  confirmBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  confirmCard: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: radius.xl ?? 20,
-    padding: 16,
-    ...shadow.md,
-  },
-  confirmIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EF4444',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmTitle: {
-    fontSize: font.sizes.md,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  confirmText: { marginTop: 8, color: '#4B5563' },
-  confirmActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  confirmBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  confirmCancel: { backgroundColor: '#fff', borderColor: '#E5E7EB' },
-  confirmDelete: { backgroundColor: '#EF4444', borderColor: '#EF4444' },
-  confirmCancelText: { color: '#111827', fontWeight: '700' },
-  confirmDeleteText: { color: '#fff', fontWeight: '800' },
-
-  // Select modalları
-  prioTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  prioBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  prioCard: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: radius.xl ?? 20,
-    padding: 16,
-    ...shadow.md,
-  },
-  prioTitle: {
-    fontSize: font.sizes.md,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  prioOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-  },
-  prioDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#E5E7EB',
-    marginRight: 10,
-  },
-  prioText: { fontSize: font.sizes.md, color: colors.text },
-  prioCancel: {
-    marginTop: 12,
-    paddingVertical: 12,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-  },
-  prioCancelText: { fontWeight: '700', color: '#111827' },
-
-  // Harcama liste
-  expItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
-    borderRadius: radius.lg,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff',
-  },
-  expThumbWrap: { marginRight: 10 },
-  expThumb: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
   },
 
   // Sheet / edit modal
@@ -1949,53 +1836,20 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
 
-  // FAB bar
-  fabWrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  fabBar: {
-    flexDirection: 'row',
-    gap: 10,
-    backgroundColor: '#fff',
-    borderRadius: radius.xl ?? 20,
-    padding: 10,
-    ...shadow.md,
-    borderWidth: 1,
-    borderColor: '#ECECEC',
-  },
-  fabBtnPrimary: {
-    flex: 1,
+  // “+” FAB
+  fabFloat: { position: 'absolute', right: 18, bottom: 24 },
+  fabCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.primary,
-    borderRadius: radius.lg,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    ...shadow.md,
     borderWidth: 1,
     borderColor: colors.primary,
   },
-  fabBtnPrimaryText: { color: '#fff', fontWeight: '800' },
-  fabBtn: {
-    backgroundColor: '#F7F8FF',
-    borderRadius: radius.lg,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#E6E8FB',
-  },
-  fabBtnText: { color: colors.primary, fontWeight: '800' },
 
   // ekstra alt boşluk
-  paddingBottomGrow: { paddingBottom: spacing.x14 },
+  paddingBottomGrow: { paddingBottom: spacing.x20 },
 });
