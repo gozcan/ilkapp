@@ -1,13 +1,7 @@
-import 'react-native-gesture-handler'; // navigasyon için gerekli
+import 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import {
   createNativeStackNavigator,
@@ -15,45 +9,74 @@ import {
 } from '@react-navigation/native-stack';
 import { supabase } from './src/lib/supabase';
 import LoginScreen from './src/screens/Login';
-
-type RootStackParamList = {
-  Login: undefined;
-  Home: undefined; // Şirketler ekranı yerine şimdilik basit "Home"
-};
+import CompaniesScreen from './src/screens/Companies';
+import ProjectsScreen, { Project } from './src/screens/Projects';
+import TasksScreen, { Task } from './src/screens/Tasks';
+import TaskDetailScreen from './src/screens/TaskDetail';
+import Toast from 'react-native-toast-message';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import ExpenseAdd from './src/screens/ExpenseAdd';
+import type { RootStackParamList } from './src/navigation/types';
+import { navRef } from './src/navigation/nav';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function HomeScreen({}: NativeStackScreenProps<RootStackParamList, 'Home'>) {
-  const [companyCount, setCompanyCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    const fetchCompanies = async () => {
-      const { count, error } = await supabase
-        .from('companies')
-        .select('*', { count: 'exact', head: true });
-      if (!error) setCompanyCount(count ?? 0);
-    };
-    fetchCompanies();
-  }, []);
-
+function CompaniesRoute({
+  navigation,
+}: NativeStackScreenProps<RootStackParamList, 'Companies'>) {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Şirketler</Text>
-      {companyCount === null ? (
-        <ActivityIndicator />
-      ) : (
-        <Text style={{ marginTop: 8 }}>Toplam şirket: {companyCount}</Text>
-      )}
-      <TouchableOpacity
-        onPress={async () => {
-          await supabase.auth.signOut();
-        }}
-        style={styles.logoutBtn}
-      >
-        <Text style={{ color: '#fff', fontWeight: '600' }}>Çıkış Yap</Text>
-      </TouchableOpacity>
-      <StatusBar style="auto" />
-    </View>
+    <CompaniesScreen
+      onSelectCompany={(c) =>
+        navigation.navigate('Projects', {
+          companyId: c.id,
+          companyName: c.name,
+        })
+      }
+    />
+  );
+}
+
+function ProjectsRoute({
+  navigation,
+  route,
+}: NativeStackScreenProps<RootStackParamList, 'Projects'>) {
+  const { companyId, companyName } = route.params;
+  return (
+    <ProjectsScreen
+      companyId={companyId}
+      companyName={companyName}
+      onSelectProject={(p: Project) =>
+        navigation.navigate('Tasks', { projectId: p.id, projectName: p.name })
+      }
+    />
+  );
+}
+
+function TasksRoute({
+  navigation,
+  route,
+}: NativeStackScreenProps<RootStackParamList, 'Tasks'>) {
+  const { projectId, projectName } = route.params;
+  return (
+    <TasksScreen
+      projectId={projectId}
+      projectName={projectName}
+      onSelectTask={(t: Task) =>
+        navigation.navigate('TaskDetail', { taskId: t.id, projectName })
+      }
+    />
+  );
+}
+
+function TaskDetailRoute({
+  route,
+}: NativeStackScreenProps<RootStackParamList, 'TaskDetail'>) {
+  const { taskId, projectName } = route.params;
+  return (
+    <TaskDetailScreen
+      taskId={taskId}
+      projectName={projectName}
+    />
   );
 }
 
@@ -76,47 +99,95 @@ export default function App() {
 
   if (!ready) {
     return (
-      <View style={styles.container}>
-        <Text>Yükleniyor...</Text>
-      </View>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={styles.center}>
+          <Text>Yükleniyor...</Text>
+        </View>
+      </GestureHandlerRootView>
     );
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerTitleAlign: 'center' }}>
-        {!isAuthed ? (
-          <Stack.Screen
-            name="Login"
-            component={LoginScreen}
-            options={{ title: 'Giriş' }}
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <NavigationContainer ref={navRef}>
+        <Stack.Navigator screenOptions={{ headerTitleAlign: 'center' }}>
+          {!isAuthed ? (
+            <Stack.Screen
+              name="Login"
+              component={LoginScreen}
+              options={{ title: 'Giriş' }}
+            />
+          ) : (
+            <>
+              <Stack.Screen
+                name="Companies"
+                component={CompaniesRoute}
+                options={{ title: 'Şirketler' }}
+              />
+              <Stack.Screen
+                name="Projects"
+                component={ProjectsRoute}
+                options={({ route }) => ({
+                  title: route.params.companyName
+                    ? `${route.params.companyName} • Projeler`
+                    : 'Projeler',
+                })}
+              />
+              <Stack.Screen
+                name="Tasks"
+                component={TasksRoute}
+                options={({ route }) => ({
+                  title: route.params.projectName
+                    ? `${route.params.projectName} • Görevler`
+                    : 'Görevler',
+                })}
+              />
+              <Stack.Screen
+                name="TaskDetail"
+                component={TaskDetailRoute}
+                options={({ route }) => ({
+                  title: route.params.projectName
+                    ? `${route.params.projectName} • Görev`
+                    : 'Görev',
+                })}
+              />
+              <Stack.Screen
+                name="ExpenseAdd"
+                component={ExpenseAddRoute}
+                options={{ headerShown: false }} // Screen bileşenimiz kendi başlığını çiziyor
+              />
+            </>
+          )}
+        </Stack.Navigator>
+
+        {/* Toast container tek yerde (root) */}
+        <View
+          pointerEvents="box-none"
+          style={{ position: 'absolute', inset: 0 }}
+        >
+          <Toast
+            topOffset={60}
+            bottomOffset={80}
           />
-        ) : (
-          <Stack.Screen
-            name="Home"
-            component={HomeScreen}
-            options={{ title: 'İlka' }}
-          />
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+        </View>
+        <StatusBar style="auto" />
+      </NavigationContainer>
+    </GestureHandlerRootView>
+  );
+}
+
+function ExpenseAddRoute({
+  route,
+}: NativeStackScreenProps<RootStackParamList, 'ExpenseAdd'>) {
+  const { projectId, taskId } = route.params;
+  return (
+    <ExpenseAdd
+      projectId={projectId}
+      taskId={taskId}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  title: { fontSize: 20, fontWeight: '700', color: '#000089' },
-  logoutBtn: {
-    marginTop: 16,
-    backgroundColor: '#000089',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-  },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });
